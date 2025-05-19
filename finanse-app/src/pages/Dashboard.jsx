@@ -17,7 +17,7 @@ export default function Dashboard() {
   const [showOptions, setShowOptions] = useState(false);
   const [selectedType, setSelectedType] = useState('');
   const [amount, setAmount] = useState('');
-  const [activeTab, setActiveTab] = useState('all');
+  const [activeTab, setActiveTab] = useState(() => localStorage.getItem('activeTab') || 'all');
   const [transactions, setTransactions] = useState([]);
 
   const previousBalance = useRef(0);
@@ -30,8 +30,8 @@ export default function Dashboard() {
   const [expenseMilestonesText, setExpenseMilestonesText] = useState('');
   const [balanceGoal, setBalanceGoal] = useState(null);
 
-  const [reportRange, setReportRange] = useState('month');
-  const [reportType, setReportType] = useState('summary');
+  const [reportRange, setReportRange] = useState(() => localStorage.getItem('reportRange') || 'month');
+  const [reportType, setReportType] = useState(() => localStorage.getItem('reportType') || 'summary');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
   const [reportResult, setReportResult] = useState(null);
@@ -62,12 +62,24 @@ export default function Dashboard() {
         .then(data => setTransactions(data))
         .catch(err => console.error('Błąd pobierania danych:', err));
 
+      const cached = localStorage.getItem('budgetSettings');
+      if (cached) {
+        const data = JSON.parse(cached);
+        setBalanceGoal(data.balanceGoal || null);
+        setBalanceMilestones(data.balanceMilestones || []);
+        setBalanceMilestonesText((data.balanceMilestones || []).join(','));
+        setIncomeMilestones(data.incomeMilestones || []);
+        setIncomeMilestonesText((data.incomeMilestones || []).join(','));
+        setExpenseMilestones(data.expenseMilestones || []);
+        setExpenseMilestonesText((data.expenseMilestones || []).join(','));
+      }
+
       fetch(`http://localhost:5000/api/budget-settings/${user.username}`)
         .then(res => res.json())
         .then(data => {
           if (data) {
             setBalanceGoal(data.balanceGoal || null);
-            
+
             setBalanceMilestones(data.balanceMilestones || []);
             setBalanceMilestonesText((data.balanceMilestones || []).join(','));
 
@@ -76,11 +88,27 @@ export default function Dashboard() {
 
             setExpenseMilestones(data.expenseMilestones || []);
             setExpenseMilestonesText((data.expenseMilestones || []).join(','));
+
+            const { _id, username, __v, ...dataWithoutId } = data;
+            localStorage.setItem('budgetSettings', JSON.stringify(dataWithoutId));
           }
         })
         .catch(err => console.error('Błąd pobierania ustawień budżetu:', err));
+
+      const last = localStorage.getItem('lastReportSettings');
+      if (last) {
+        const data = JSON.parse(last);
+        setReportRange(data.reportRange || 'month');
+        setReportType(data.reportType || 'summary');
+        setCustomFrom(data.customFrom || '');
+        setCustomTo(data.customTo || '');
+      }
     }
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem('activeTab', activeTab);
+  }, [activeTab]);
 
   const toggleAddOptions = () => {
     setShowOptions(!showOptions);
@@ -131,7 +159,7 @@ export default function Dashboard() {
     }
 
     for (let milestone of balanceMilestones) {
-      if (balance >= milestone && !notifiedMilestones.current.has('b' + milestone)) {
+      if ((milestone >= 0 && balance >= milestone) || (milestone < 0 && balance <= milestone) && !notifiedMilestones.current.has('b' + milestone)) {
         sendNotification('Saldo', `Saldo przekroczyło ${milestone} zł.`);
         notifiedMilestones.current.add('b' + milestone);
         break;
@@ -208,6 +236,8 @@ export default function Dashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings)
       });
+      const { username, ...dataWithoutId } = settings;
+      localStorage.setItem('budgetSettings', JSON.stringify(dataWithoutId));
       sendNotification('Zapisano', 'Ustawienia budżetowe zostały zapisane.');
     } catch (err) {
       console.error('Błąd zapisu ustawień:', err);
@@ -256,21 +286,56 @@ export default function Dashboard() {
 
     let result;
 
+    const incomes = filtered.filter(t => t.type === 'income');
+    const expenses = filtered.filter(t => t.type === 'expense');
     switch (reportType) {
       case 'summary':
-        const income = filtered.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-        const expense = filtered.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-        const avgIncome = income > 0 ? income / filtered.filter(t => t.type === 'income').length : 0;
-        const avgExpense = expense > 0 ? expense / filtered.filter(t => t.type === 'expense').length : 0;
+        const income = incomes.reduce((s, t) => s + t.amount, 0);
+        const expense = expenses.reduce((s, t) => s + t.amount, 0);
+        const avgIncome = incomes.length ? income / incomes.length : 0;
+        const avgExpense = expenses.length ? expense / expenses.length : 0;
+        const totalDays = Math.max(1, Math.ceil((toDate - fromDate) / (1000 * 60 * 60 * 24)));
+        const mostCommonType = incomes.length === expenses.length
+          ? 'Równowaga'
+          : incomes.length > expenses.length ? 'Przychody' : 'Wydatki';
+        const savingsRate = income > 0 ? (((income - expense) / income) * 100).toFixed(2) : '0.00';
 
         result = {
           "Zakres dat": `${fromDate.toLocaleDateString('pl-PL')} – ${toDate.toLocaleDateString('pl-PL')}`,
           "Saldo": `${(income - expense).toFixed(2)} zł`,
-          "Przychody": `${income.toFixed(2)} zł`,
-          "Średnie przychody": `${avgIncome.toFixed(2)} zł`,
-          "Wydatki": `${expense.toFixed(2)} zł`,
-          "Średnie wydatki": `${avgExpense.toFixed(2)} zł`,
-          "Ilość transakcji": filtered.length
+          "Wskaźnik oszczędności": `${savingsRate}%`,
+          "Liczba transakcji": filtered.length,
+          "Średnia liczba transakcji dziennie": (filtered.length / totalDays).toFixed(2),
+
+          "Przychody – suma": `${income.toFixed(2)} zł`,
+          "Liczba przychodów": incomes.length,
+          "Średni przychód": `${avgIncome.toFixed(2)} zł`,
+          "Największy przychód": incomes.length ? `${Math.max(...incomes.map(t => t.amount)).toFixed(2)} zł` : '–',
+
+          "Wydatki – suma": `${expense.toFixed(2)} zł`,
+          "Liczba wydatków": expenses.length,
+          "Średni wydatek": `${avgExpense.toFixed(2)} zł`,
+          "Największy wydatek": expenses.length ? `${Math.max(...expenses.map(t => t.amount)).toFixed(2)} zł` : '–',
+
+          "Dominujący typ transakcji": mostCommonType
+        };
+        break;
+
+      case 'incomeVsExpense':
+        const totalIncome = incomes.reduce((s, t) => s + t.amount, 0);
+        const totalExpense = expenses.reduce((s, t) => s + t.amount, 0);
+
+        result = {
+          "Zakres dat": `${fromDate.toLocaleDateString('pl-PL')} – ${toDate.toLocaleDateString('pl-PL')}`,
+          "Łączne przychody": `${totalIncome.toFixed(2)} zł`,
+          "Liczba przychodów": incomes.length,
+          "Średni przychód": incomes.length ? `${(totalIncome / incomes.length).toFixed(2)} zł` : '0.00 zł',
+          "Największy przychód": incomes.length ? `${Math.max(...incomes.map(t => t.amount)).toFixed(2)} zł` : '–',
+          "Łączne wydatki": `${totalExpense.toFixed(2)} zł`,
+          "Liczba wydatków": expenses.length,
+          "Średni wydatek": expenses.length ? `${(totalExpense / expenses.length).toFixed(2)} zł` : '0.00 zł',
+          "Największy wydatek": expenses.length ? `${Math.max(...expenses.map(t => t.amount)).toFixed(2)} zł` : '–',
+          "Udział wydatków w przychodach": totalIncome > 0 ? `${((totalExpense / totalIncome) * 100).toFixed(2)}%` : '–'
         };
         break;
 
@@ -289,24 +354,16 @@ export default function Dashboard() {
         }).reverse();
         break;
 
-      case 'incomeVsExpense':
-        const incomes = filtered.filter(t => t.type === 'income');
-        const expenses = filtered.filter(t => t.type === 'expense');
-
-        result = {
-          "Zakres dat": `${fromDate.toLocaleDateString('pl-PL')} – ${toDate.toLocaleDateString('pl-PL')}`,
-          "Liczba przychodów": incomes.length,
-          "Łączne przychody": `${incomes.reduce((s, t) => s + t.amount, 0).toFixed(2)} zł`,
-          "Lista przychodów": incomes.map(t => `${t.amount.toFixed(2)} zł (${t.date})`),
-          "Liczba wydatków": expenses.length,
-          "Łączne wydatki": `${expenses.reduce((s, t) => s + t.amount, 0).toFixed(2)} zł`,
-          "Lista wydatków": expenses.map(t => `${t.amount.toFixed(2)} zł (${t.date})`)
-        };
-        break;
-
       default:
         result = { info: "Brak danych" };
     }
+
+    localStorage.setItem('lastReportSettings', JSON.stringify({
+      reportRange,
+      reportType,
+      customFrom,
+      customTo
+    }));
 
     setReportResult(result);
   };
@@ -563,8 +620,8 @@ export default function Dashboard() {
             <label>Rodzaj raportu:</label>
             <select value={reportType} onChange={(e) => setReportType(e.target.value)}>
               <option value="summary">Podsumowanie</option>
-              <option value="balance">Zmiany salda</option>
               <option value="incomeVsExpense">Przychody/wydatki</option>
+              <option value="balance">Historia salda</option>
             </select>
           </div>
 
