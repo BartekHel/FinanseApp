@@ -57,7 +57,7 @@ export default function Dashboard() {
     const user = JSON.parse(localStorage.getItem('user'));
     if (user && user.username) {
       setUsername(user.username);
-      fetch(`http://localhost:5000/api/transactions/${user.username}`)
+      fetch(`https://us-central1-finanseapp-270402.cloudfunctions.net/api/transactions/${user.username}`)
         .then(res => res.json())
         .then(data => setTransactions(data))
         .catch(err => console.error('Błąd pobierania danych:', err));
@@ -74,7 +74,7 @@ export default function Dashboard() {
         setExpenseMilestonesText((data.expenseMilestones || []).join(','));
       }
 
-      fetch(`http://localhost:5000/api/budget-settings/${user.username}`)
+      fetch(`https://us-central1-finanseapp-270402.cloudfunctions.net/api/budget-settings/${user.username}`)
         .then(res => res.json())
         .then(data => {
           if (data) {
@@ -198,7 +198,7 @@ export default function Dashboard() {
     const user = JSON.parse(localStorage.getItem('user'));
     if (user && user.username) {
       try {
-        await fetch('http://localhost:5000/api/transactions', {
+        await fetch('https://us-central1-finanseapp-270402.cloudfunctions.net/api/transactions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -231,7 +231,7 @@ export default function Dashboard() {
     };
 
     try {
-      await fetch('http://localhost:5000/api/budget-settings', {
+      await fetch('https://us-central1-finanseapp-270402.cloudfunctions.net/api/budget-settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings)
@@ -430,7 +430,7 @@ export default function Dashboard() {
     if (!user || !user.username) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/transactions/${user.username}`, {
+      const res = await fetch(`https://us-central1-finanseapp-270402.cloudfunctions.net/api/transactions/${user.username}`, {
         method: 'DELETE'
       });
 

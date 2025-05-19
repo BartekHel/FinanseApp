@@ -1,30 +1,36 @@
-import express from 'express';
-import mongoose from 'mongoose';
-import cors from 'cors';
-import dotenv from 'dotenv';
-import { Transaction } from './models/Transaction.js';
-import { BudgetSetting } from './models/BudgetSetting.js';
-import { User } from './models/User.js';
+const functions = require("firebase-functions");
+const express = require("express");
+const mongoose = require("mongoose");
+const cors = require("cors");
 
-dotenv.config();
+const { User } = require("./models/User");
+const { Transaction } = require("./models/Transaction");
+const { BudgetSetting } = require("./models/BudgetSetting");
+
+require("dotenv").config();
 const app = express();
-app.use(cors());
+
+const corsOptions = {
+  origin: 'https://finanseapp-270402.web.app',
+  methods: ['GET', 'POST', 'DELETE', 'PUT', 'OPTIONS'],
+  allowedHeaders: ['Content-Type'],
+  credentials: true
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
-mongoose.connect(process.env.MONGO_URI);
 
-app.post('/register', async (req, res) => {
-  const { username, password } = req.body;
+const mongoUri = process.env.MONGO_URI;
+mongoose.connect(mongoUri, {
+  useNewUrlParser: true,
+  ssl: true
+}).catch(err => {
+  console.error("Błąd MongoDB:", err);
+});
 
-  try {
-    const existing = await User.findOne({ username });
-    if (existing) return res.status(409).json({ message: 'Użytkownik już istnieje' });
-
-    const user = new User({ username, password });
-    await user.save();
-    res.status(201).json({ message: 'Zarejestrowano' });
-  } catch (err) {
-    res.status(500).json({ message: 'Błąd serwera' });
-  }
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ message: 'Wewnętrzny błąd serwera' });
 });
 
 app.post('/login', async (req, res) => {
@@ -106,4 +112,4 @@ app.get('/budget-settings/:username', async (req, res) => {
   }
 });
 
-app.listen(5000, () => { console.log('Server działa lokalnie na http://localhost:5000'); });
+exports.api = functions.https.onRequest(app);
