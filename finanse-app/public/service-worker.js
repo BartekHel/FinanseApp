@@ -8,23 +8,24 @@ self.addEventListener('install', (event) => {
         '/manifest.webmanifest',
         '/assets/icon-192.png',
         '/assets/icon-512.png',
-        '/assets/index-Br6ce5j3.js',
-        '/assets/index-CFaJS2W2.js'
+        '/assets/index-Dk9BZvVQ.js',
+        '/assets/index-DUEJBVpI.css'
       ]);
     })
   );
 });
 
 self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
-
-  if (url.origin !== self.location.origin) {
-    return;
-  }
-
   event.respondWith(
-    caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
+    caches.match(event.request).then((cachedResponse) => {
+      return (
+        cachedResponse ||
+        fetch(event.request).catch(() => {
+          if (event.request.mode === 'navigate') {
+            return caches.match('/index.html');
+          }
+        })
+      );
     })
   );
 });

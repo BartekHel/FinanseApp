@@ -8,10 +8,12 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'assets/icon-192.png', 'assets/icon-512.png'],
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,png,webmanifest}']
+      },
       manifest: {
         name: 'Finanse App',
-        short_name: 'Finanse',
+        short_name: 'FApp',
         start_url: '/',
         display: 'standalone',
         background_color: '#ffffff',
