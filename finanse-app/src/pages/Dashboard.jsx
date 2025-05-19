@@ -57,7 +57,12 @@ export default function Dashboard() {
     const user = JSON.parse(localStorage.getItem('user'));
     if (user && user.username) {
       setUsername(user.username);
-      fetch(`https://us-central1-finanseapp-270402.cloudfunctions.net/api/transactions/${user.username}`)
+      const API_BASE_URL =
+        import.meta.env.MODE === 'development'
+          ? 'http://localhost:5000'
+          : 'https://us-central1-finanseapp-270402.cloudfunctions.net/api';
+
+      fetch(`${API_BASE_URL}/transactions/${user.username}`)
         .then(res => res.json())
         .then(data => setTransactions(data))
         .catch(err => console.error('Błąd pobierania danych:', err));
@@ -74,7 +79,7 @@ export default function Dashboard() {
         setExpenseMilestonesText((data.expenseMilestones || []).join(','));
       }
 
-      fetch(`https://us-central1-finanseapp-270402.cloudfunctions.net/api/budget-settings/${user.username}`)
+      fetch(`${API_BASE_URL}/budget-settings/${user.username}`)
         .then(res => res.json())
         .then(data => {
           if (data) {
@@ -198,7 +203,12 @@ export default function Dashboard() {
     const user = JSON.parse(localStorage.getItem('user'));
     if (user && user.username) {
       try {
-        await fetch('https://us-central1-finanseapp-270402.cloudfunctions.net/api/transactions', {
+        const API_BASE_URL =
+        import.meta.env.MODE === 'development'
+          ? 'http://localhost:5000'
+          : 'https://us-central1-finanseapp-270402.cloudfunctions.net/api';
+
+        await fetch(`${API_BASE_URL}/transactions`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -231,7 +241,12 @@ export default function Dashboard() {
     };
 
     try {
-      await fetch('https://us-central1-finanseapp-270402.cloudfunctions.net/api/budget-settings', {
+        const API_BASE_URL =
+        import.meta.env.MODE === 'development'
+          ? 'http://localhost:5000'
+          : 'https://us-central1-finanseapp-270402.cloudfunctions.net/api';
+
+      await fetch(`${API_BASE_URL}/budget-settings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings)
@@ -430,7 +445,12 @@ export default function Dashboard() {
     if (!user || !user.username) return;
 
     try {
-      const res = await fetch(`https://us-central1-finanseapp-270402.cloudfunctions.net/api/transactions/${user.username}`, {
+      const API_BASE_URL =
+        import.meta.env.MODE === 'development'
+          ? 'http://localhost:5000'
+          : 'https://us-central1-finanseapp-270402.cloudfunctions.net/api';
+
+      const res = await fetch(`${API_BASE_URL}/transactions/${user.username}`, {
         method: 'DELETE'
       });
 

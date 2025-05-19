@@ -33,6 +33,21 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: 'Wewnętrzny błąd serwera' });
 });
 
+app.post('/register', async (req, res) => {
+  const { username, password } = req.body;
+
+  try {
+    const existing = await User.findOne({ username });
+    if (existing) return res.status(409).json({ message: 'Użytkownik już istnieje' });
+
+    const user = new User({ username, password });
+    await user.save();
+    res.status(201).json({ message: 'Zarejestrowano' });
+  } catch (err) {
+    res.status(500).json({ message: 'Błąd serwera' });
+  }
+});
+
 app.post('/login', async (req, res) => {
   const { username, password } = req.body;
 

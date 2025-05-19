@@ -12,9 +12,16 @@ export default function Login() {
     setError('');
 
     try {
-      const res = await fetch('https://us-central1-finanseapp-270402.cloudfunctions.net/api/login', {
+      const API_BASE_URL =
+        import.meta.env.MODE === 'development'
+          ? 'http://localhost:5000'
+          : 'https://us-central1-finanseapp-270402.cloudfunctions.net/api';
+
+      const res = await fetch(`${API_BASE_URL}/login`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({ username, password })
       });
 

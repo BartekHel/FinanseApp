@@ -18,9 +18,16 @@ export default function Register() {
     }
 
     try {
-      const res = await fetch('http://localhost:5000/api/register', {
+      const API_BASE_URL =
+        import.meta.env.MODE === 'development'
+          ? 'http://localhost:5000'
+          : 'https://us-central1-finanseapp-270402.cloudfunctions.net/api';
+
+      const res = await fetch(`${API_BASE_URL}/register`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({ username, password })
       });
 

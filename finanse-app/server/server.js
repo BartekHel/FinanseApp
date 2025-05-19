@@ -8,9 +8,32 @@ import { User } from './models/User.js';
 
 dotenv.config();
 const app = express();
-app.use(cors());
+
+const allowedOrigins = process.env.NODE_ENV === 'development'
+  ? ['http://localhost:5173']
+  : ['https://finanseapp-270402.web.app'];
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error('Not allowed by CORS: ' + origin));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type']
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
-mongoose.connect(process.env.MONGO_URI);
+
+mongoose.connect(process.env.MONGO_URI, {
+  ssl: true
+}).catch(err => {
+  console.error("Błąd MongoDB:", err);
+});
 
 app.post('/register', async (req, res) => {
   const { username, password } = req.body;
