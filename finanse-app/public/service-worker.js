@@ -8,8 +8,8 @@ self.addEventListener('install', (event) => {
         '/manifest.webmanifest',
         '/assets/icon-192.png',
         '/assets/icon-512.png',
-        '/assets/index-Dk9BZvVQ.js',
-        '/assets/index-DUEJBVpI.css'
+        '/assets/index-DUEJBVpI.css',
+        '/assets/index-OpwuvtDC.js'
       ]);
     })
   );
