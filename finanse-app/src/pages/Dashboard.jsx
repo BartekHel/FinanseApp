@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { saveTransactionToDB, getTransactionsFromDB } from '../db.js';
 import {
   ResponsiveContainer,
   AreaChart,
@@ -57,15 +58,16 @@ export default function Dashboard() {
     const user = JSON.parse(localStorage.getItem('user'));
     if (user && user.username) {
       setUsername(user.username);
+
       const API_BASE_URL =
         import.meta.env.MODE === 'development'
           ? 'http://localhost:5000'
           : 'https://us-central1-finanseapp-270402.cloudfunctions.net/api';
 
-      fetch(`${API_BASE_URL}/transactions/${user.username}`)
-        .then(res => res.json())
-        .then(data => setTransactions(data))
-        .catch(err => console.error('Błąd pobierania danych:', err));
+        fetch(`${API_BASE_URL}/transactions/${user.username}`)
+          .then(res => res.json())
+          .then(data => setTransactions(data))
+          .catch(err => console.error('Błąd pobierania danych:', err));
 
       const cached = localStorage.getItem('budgetSettings');
       if (cached) {
@@ -79,6 +81,7 @@ export default function Dashboard() {
         setExpenseMilestonesText((data.expenseMilestones || []).join(','));
       }
 
+      var isOnline = false;
       fetch(`${API_BASE_URL}/budget-settings/${user.username}`)
         .then(res => res.json())
         .then(data => {
@@ -90,15 +93,47 @@ export default function Dashboard() {
 
             setIncomeMilestones(data.incomeMilestones || []);
             setIncomeMilestonesText((data.incomeMilestones || []).join(','));
-
+            
             setExpenseMilestones(data.expenseMilestones || []);
             setExpenseMilestonesText((data.expenseMilestones || []).join(','));
 
             const { _id, username, __v, ...dataWithoutId } = data;
             localStorage.setItem('budgetSettings', JSON.stringify(dataWithoutId));
+
+            fetch(`${API_BASE_URL}/transactions/${user.username}`)
+              .then(res => res.json())
+              .then(data => {
+                const clean = data.filter(
+                  tx =>
+                    tx &&
+                    typeof tx.amount === 'number' &&
+                    ['income', 'expense'].includes(tx.type) &&
+                    tx.username &&
+                    tx.date
+                );
+
+                setTransactions(clean);
+
+                clean.forEach(tx => {
+                  try {
+                    tx.id = tx._id || Date.now();
+                    saveTransactionToDB(tx);
+                  } catch (e) {
+                    console.error('Błąd zapisu do IndexedDB:', e, tx);
+                  }
+                });
+              })
+              .catch(err => console.error('Błąd pobierania danych:', err));
+            isOnline = true;
           }
         })
         .catch(err => console.error('Błąd pobierania ustawień budżetu:', err));
+
+      if(!isOnline) {
+        getTransactionsFromDB().then(localData => {
+        setTransactions(localData);
+        });
+      }
 
       const last = localStorage.getItem('lastReportSettings');
       if (last) {
@@ -202,6 +237,7 @@ export default function Dashboard() {
 
     const user = JSON.parse(localStorage.getItem('user'));
     if (user && user.username) {
+      await saveTransactionToDB(newTransaction);
       try {
         const API_BASE_URL =
         import.meta.env.MODE === 'development'
